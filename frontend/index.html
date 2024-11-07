@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NETWars</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Auth Forms -->
+        <div id="auth-screen">
+            <div class="form" id="login-form">
+                <h2>Login</h2>
+                <input type="text" id="login-username" placeholder="Username">
+                <input type="password" id="login-password" placeholder="Password">
+                <button onclick="login()">Login</button>
+                <button onclick="toggleForms()">Register Instead</button>
+            </div>
+            
+            <div class="form hidden" id="register-form">
+                <h2>Register</h2>
+                <input type="text" id="register-username" placeholder="Username">
+                <input type="password" id="register-password" placeholder="Password">
+                <button onclick="register()">Register</button>
+                <button onclick="toggleForms()">Login Instead</button>
+            </div>
+        </div>
+
+        <!-- Game List -->
+        <div id="game-list-screen" class="hidden">
+            <h2>Games</h2>
+            <button onclick="logout()" style="float: right;">Logout</button>
+            <button onclick="createGame()">New Game</button>
+            <ul id="games" class="game-list"></ul>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden">
+            <div class="game-container">
+                <div class="board-container">
+                    <h3>Your Board</h3>
+                    <div id="my-board" class="grid"></div>
+                </div>
+                <div class="board-container">
+                    <h3>Opponent's Board</h3>
+                    <div id="opponent-board" class="grid"></div>
+                </div>
+            </div>
+            <div id="game-info" class="game-info"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

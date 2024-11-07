@@ -1,0 +1,134 @@
+:root {
+    --primary-color: #007bff;
+    --secondary-color: #f8f9fa;
+    --text-color: #333;
+    --highlight-color: #0056b3;
+    --background-color: #f0f4f8;
+    --border-color: #007bff;
+    --cell-size: 40px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Forms */
+.form {
+    background: var(--secondary-color);
+    border: 2px solid var(--border-color);
+    padding: 20px;
+    margin: 20px auto;
+    max-width: 400px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+input {
+    background: var(--background-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 10px;
+    width: 100%;
+    margin: 10px 0;
+    border-radius: 4px;
+}
+
+button {
+    background: var(--primary-color);
+    color: var(--secondary-color);
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 10px;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background: var(--highlight-color);
+}
+
+/* Game List */
+.game-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+}
+
+.game-item {
+    background: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Grid */
+.grid {
+    display: inline-grid;
+    grid-template-columns: repeat(10, var(--cell-size));
+    margin: 10px;
+}
+
+.cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    border: 1px solid var(--border-color);
+    background-color: var(--secondary-color);
+    transition: background-color 0.2s;
+}
+
+.cell:hover {
+    background-color: rgba(0, 123, 255, 0.2);
+}
+
+.hit {
+    background-color: #ff4d4d;
+}
+
+.miss {
+    background-color: #cccccc;
+}
+
+.ship {
+    background-color: var(--primary-color);
+    color: var(--secondary-color);
+}
+
+/* Game Interface */
+.game-container {
+    display: flex;
+    justify-content: space-between;
+}
+
+.board-container {
+    text-align: center;
+}
+
+.game-info {
+    background: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+}
