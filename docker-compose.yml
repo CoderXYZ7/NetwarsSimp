@@ -17,8 +17,8 @@ services:
       - "5000:5000"
     environment:
       - DB_HOST=db
-      - DB_USER=netwars
-      - DB_PASSWORD=netwarspass
+      - DB_USER=root
+      - DB_PASSWORD=rootpass
       - DB_NAME=netwars_db
     depends_on:
       - db
