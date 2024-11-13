@@ -72,9 +72,7 @@ INSERT INTO ship_configs (ship_type, length) VALUES
     ('submarine', 3),
     ('destroyer', 2);
 
--- Add procedures for game actions
-DELIMITER //
-
+-- Procedure: create_game
 CREATE PROCEDURE create_game(
     IN p_name VARCHAR(100),
     IN p_player1_id INT
@@ -86,7 +84,7 @@ BEGIN
     INSERT INTO games (name, player1_id, status)
     VALUES (p_name, p_player1_id, 'waiting');
 
-    -- Debug check: Confirm game ID
+    -- Retrieve game ID
     SET v_game_id = LAST_INSERT_ID();
     IF v_game_id IS NULL THEN
         SIGNAL SQLSTATE '45000'
@@ -106,11 +104,11 @@ BEGIN
         length
     FROM ship_configs;
 
-    -- Final return: Game ID
+    -- Return Game ID
     SELECT v_game_id as game_id;
-END//
+END;
 
-
+-- Procedure: join_game
 CREATE PROCEDURE join_game(
     IN p_game_id INT,
     IN p_player_id INT
@@ -137,8 +135,9 @@ BEGIN
         length,
         length
     FROM ship_configs;
-END//
+END;
 
+-- Procedure: make_move
 CREATE PROCEDURE make_move(
     IN p_game_id INT,
     IN p_player_id INT,
@@ -191,13 +190,9 @@ BEGIN
     
     -- Return result
     SELECT v_is_hit as hit, v_ship_id as ship_id;
-END//
+END;
 
-DELIMITER ;
-
--- Add trigger for game statistics
-DELIMITER //
-
+-- Trigger: after_game_complete
 CREATE TRIGGER after_game_complete
 AFTER UPDATE ON games
 FOR EACH ROW
@@ -215,6 +210,4 @@ BEGIN
             WHERE user_id = NEW.winner_id;
         END IF;
     END IF;
-END//
-
-DELIMITER ;
+END;
