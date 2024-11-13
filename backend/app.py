@@ -10,6 +10,11 @@ from datetime import datetime, timedelta
 from flask import make_response
 from datetime import timezone
 
+debug = True
+
+if debug:
+    print("If you see this message, the backend is running in debug mode.", flush=True)
+
 app = Flask(__name__)
 CORS(app, resources={
     r"/api/*": {
@@ -92,6 +97,9 @@ def login():
         if not data or 'username' not in data or 'password' not in data:
             return jsonify({'message': 'Missing username or password'}), 400
 
+        if debug:
+            print(f"Login attempt: {data['username']}", flush=True)
+
         db = get_db()
         cursor = db.cursor(dictionary=True)
         
@@ -109,6 +117,7 @@ def login():
                 'user_id': user['user_id'],
                 'username': user['username']
             })
+
         
         return jsonify({'message': 'Invalid credentials'}), 401
     except Exception as e:
@@ -152,6 +161,9 @@ def get_games():
                 'current_turn': game['current_turn'],
                 'created_at': game['created_at'].isoformat() if game['created_at'] else None
             })
+
+            if debug:
+                print(formatted_games, flush=True)
         
         return jsonify({'games': formatted_games})
     except Exception as e:
@@ -166,22 +178,31 @@ def get_games():
 @app.route('/api/v1/games/<int:game_id>/join', methods=['POST'])
 @token_required
 def join_game(game_id):
+    db, cursor = None, None
     try:
         db = get_db()
         cursor = db.cursor(dictionary=True)
-        
+
         cursor.execute("CALL join_game(%s, %s)", (game_id, request.user_id))
         db.commit()
         
+        print(f"User {request.user_id} successfully joined game {game_id}", flush=True)
         return jsonify({'message': 'Successfully joined game'}), 200
+
     except Exception as e:
-        print(f"Error joining game: {str(e)}")
+        print(f"[ERROR] Failed to join game {game_id} for user {request.user_id}: {e}", flush=True)
         return jsonify({'message': 'Server error'}), 500
+
     finally:
-        if 'cursor' in locals():
+        if cursor:
             cursor.close()
-        if 'db' in locals():
+        if db:
             db.close()
+        
+        # Debugging information for missing game or user_id issues
+        if 'user_id' not in request or not game_id:
+            print(f"[DEBUG] User or Game ID issue: user_id={getattr(request, 'user_id', None)}, game_id={game_id}", flush=True)
+
 
 @app.route('/api/v1/games', methods=['POST'])
 @token_required
