@@ -78,7 +78,7 @@ CREATE PROCEDURE create_game(
     IN p_player1_id INT
 )
 BEGIN
-    DECLARE v_game_id INT;
+    DECLARE v_game_id INT;  -- Added missing semicolon
 
     -- Create the game
     INSERT INTO games (name, player1_id, status)
