@@ -72,6 +72,8 @@ INSERT INTO ship_configs (ship_type, length) VALUES
     ('submarine', 3),
     ('destroyer', 2);
 
+DELIMITER //
+
 -- Trigger: after_game_complete
 CREATE TRIGGER after_game_complete
 AFTER UPDATE ON games
@@ -90,4 +92,6 @@ BEGIN
             WHERE user_id = NEW.winner_id;
         END IF;
     END IF;
-END;
+END//
+
+DELIMITER ;
