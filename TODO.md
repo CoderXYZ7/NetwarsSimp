@@ -1,3 +1,5 @@
+# TODO
+
 1. Security Issues:
 - The JWT token doesn't include an expiration date in the registration route (though it does in login)
 - No rate limiting on login/registration attempts
@@ -16,7 +18,6 @@
 - No timeout/abandonment handling for inactive games
 - Game state isn't fully validated when making moves
 
-Let me create an improved version of the critical sections:
 
 
 
