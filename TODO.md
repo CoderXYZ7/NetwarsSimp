@@ -18,9 +18,6 @@
 
 Let me create an improved version of the critical sections:
 
-pirla
-
-
 
 ```python
 from flask import Flask, request, jsonify
