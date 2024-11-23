@@ -520,6 +520,30 @@ def get_game_status(game_id):
         """, (game_id,))
         moves = cursor.fetchall()
         
+        print(moves, flush=True)
+        print(ships, flush=True)
+        print(jsonify({
+            'status': player_info['status'],
+            'role': player_info['role'],
+            'is_your_turn': player_info['current_turn'] == request.user_id,
+            'ships': [{
+                'id': ship['ship_id'],
+                'type': ship['ship_type'],
+                'x': ship['x_start'],
+                'y': ship['y_start'],
+                'orientation': ship['orientation'],
+                'length': ship['length'],
+                'health': ship['health']
+            } for ship in ships],
+            'moves': [{
+                'x': move['x_coord'],
+                'y': move['y_coord'],
+                'is_hit': move['is_hit'],
+                'player': move['player_name'],
+                'timestamp': move['created_at'].isoformat()
+            } for move in moves]
+        }), flush=True)
+
         return jsonify({
             'status': player_info['status'],
             'role': player_info['role'],

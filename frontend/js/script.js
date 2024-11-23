@@ -215,9 +215,9 @@ const API_URL = '/api/v1';
             document.getElementById('game-screen').classList.remove('hidden');
             await loadGameState();
         }
-
+// ciao
         async function loadGameState() {
-            const response = await fetch(`${API_URL}/games/${currentGame}`, {
+            const response = await fetch(`${API_URL}/games/${currentGame}/status`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
