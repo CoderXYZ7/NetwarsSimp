@@ -1,97 +1,86 @@
--- Create schema file: ./db/init.sql
+-- Create database if it doesn't exist
 CREATE DATABASE IF NOT EXISTS netwars_db;
 USE netwars_db;
 
-CREATE TABLE users (
-    user_id INT AUTO_INCREMENT PRIMARY KEY,
+-- Drop tables if they exist to ensure clean initialization
+DROP TABLE IF EXISTS hits;
+DROP TABLE IF EXISTS ships;
+DROP TABLE IF EXISTS games;
+DROP TABLE IF EXISTS players;
+DROP TABLE IF EXISTS ships_type;
+
+-- Create players table
+CREATE TABLE players (
+    id INT PRIMARY KEY AUTO_INCREMENT,
     username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    games_played INT DEFAULT 0,
-    games_won INT DEFAULT 0
+    password VARCHAR(255) NOT NULL,
+    CONSTRAINT chk_username_length CHECK (LENGTH(username) >= 3)
 );
 
+-- Create games table
 CREATE TABLE games (
-    game_id INT AUTO_INCREMENT PRIMARY KEY,
+    id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
-    status ENUM('waiting', 'active', 'completed') DEFAULT 'waiting',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    size INT NOT NULL,
     player1_id INT,
     player2_id INT,
-    current_turn INT,
     winner_id INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (player1_id) REFERENCES users(user_id),
-    FOREIGN KEY (player2_id) REFERENCES users(user_id),
-    FOREIGN KEY (winner_id) REFERENCES users(user_id)
+    status ENUM('waiting', 'active', 'completed') NOT NULL DEFAULT 'waiting',
+    number_of_turns INT DEFAULT 0,
+    FOREIGN KEY (player1_id) REFERENCES players(id) ON DELETE SET NULL,
+    FOREIGN KEY (player2_id) REFERENCES players(id) ON DELETE SET NULL,
+    FOREIGN KEY (winner_id) REFERENCES players(id) ON DELETE SET NULL,
+    CONSTRAINT chk_board_size CHECK (size >= 5 AND size <= 20),
+    CONSTRAINT chk_different_players CHECK (player1_id != player2_id)
 );
 
-CREATE TABLE ship_configs (
-    ship_type ENUM('carrier', 'battleship', 'cruiser', 'submarine', 'destroyer') PRIMARY KEY,
-    length INT NOT NULL
-);
-
-CREATE TABLE ships (
-    ship_id INT AUTO_INCREMENT PRIMARY KEY,
-    game_id INT,
-    player_id INT,
-    ship_type ENUM('carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'),
-    x_start INT NOT NULL,
-    y_start INT NOT NULL,
-    orientation ENUM('horizontal', 'vertical'),
+-- Create ships_type table
+CREATE TABLE ships_type (
+    type VARCHAR(2) PRIMARY KEY,
     length INT NOT NULL,
-    health INT NOT NULL,
-    FOREIGN KEY (game_id) REFERENCES games(game_id),
-    FOREIGN KEY (player_id) REFERENCES users(user_id),
-    FOREIGN KEY (ship_type) REFERENCES ship_configs(ship_type)
+    CONSTRAINT chk_ship_length CHECK (length > 0 AND length <= 6)
 );
 
-CREATE TABLE moves (
-    move_id INT AUTO_INCREMENT PRIMARY KEY,
-    game_id INT,
-    player_id INT,
-    x_coord INT NOT NULL,
-    y_coord INT NOT NULL,
-    is_hit BOOLEAN,
-    ship_id INT,
-    move_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (game_id) REFERENCES games(game_id),
-    FOREIGN KEY (player_id) REFERENCES users(user_id),
-    FOREIGN KEY (ship_id) REFERENCES ships(ship_id)
+-- Create ships table
+CREATE TABLE ships (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    game_id INT NOT NULL,
+    player_id INT NOT NULL,
+    type VARCHAR(2) NOT NULL,
+    position_x INT NOT NULL,
+    position_y INT NOT NULL,
+    orientation ENUM('u', 'd', 'l', 'r') NOT NULL,
+    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+    FOREIGN KEY (type) REFERENCES ships_type(type) ON DELETE RESTRICT,
+    CONSTRAINT chk_position CHECK (position_x >= 0 AND position_y >= 0)
 );
 
--- Add indexes for performance
+-- Create hits table
+CREATE TABLE hits (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    game_id INT NOT NULL,
+    attacher_player_id INT NOT NULL,
+    reciver_player_id INT NOT NULL,
+    position_x INT NOT NULL,
+    position_y INT NOT NULL,
+    what_hit ENUM('ship', 'water') NOT NULL,
+    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+    FOREIGN KEY (attacher_player_id) REFERENCES players(id) ON DELETE CASCADE,
+    FOREIGN KEY (reciver_player_id) REFERENCES players(id) ON DELETE CASCADE,
+    CONSTRAINT chk_hit_position CHECK (position_x >= 0 AND position_y >= 0)
+);
+
+-- Insert default ship types
+INSERT INTO ships_type (type, length) VALUES
+    ('CA', 5),  -- Carrier
+    ('SB', 3),  -- Submarine
+    ('IC', 3),  -- Interceptor
+    ('FR', 4),  -- Frigate
+    ('IF', 2);  -- Inflatable
+
+-- Create indexes for better query performance
 CREATE INDEX idx_games_status ON games(status);
-CREATE INDEX idx_moves_game ON moves(game_id);
 CREATE INDEX idx_ships_game ON ships(game_id);
-
--- Insert ship configuration
-INSERT INTO ship_configs (ship_type, length) VALUES
-    ('carrier', 5),
-    ('battleship', 4),
-    ('cruiser', 3),
-    ('submarine', 3),
-    ('destroyer', 2);
-
-DELIMITER //
-
--- Trigger: after_game_complete
-CREATE TRIGGER after_game_complete
-AFTER UPDATE ON games
-FOR EACH ROW
-BEGIN
-    IF NEW.status = 'completed' AND OLD.status != 'completed' THEN
-        -- Update games_played for both players
-        UPDATE users 
-        SET games_played = games_played + 1
-        WHERE user_id IN (NEW.player1_id, NEW.player2_id);
-        
-        -- Update games_won for winner
-        IF NEW.winner_id IS NOT NULL THEN
-            UPDATE users
-            SET games_won = games_won + 1
-            WHERE user_id = NEW.winner_id;
-        END IF;
-    END IF;
-END//
-
-DELIMITER ;
+CREATE INDEX idx_hits_game ON hits(game_id);

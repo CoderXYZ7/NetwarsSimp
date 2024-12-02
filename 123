@@ -389,9 +389,9 @@ def place_ship(current_user_id):
     game = cur.fetchone()
     
     # Continuing place_ship function
-    if not game:
-        cur.close()
-        return jsonify({'message': 'Game not found or not in setup phase'}), 400
+        if not game:
+            cur.close()
+            return jsonify({'message': 'Game not found or not in setup phase'}), 400
         
         size = game[0]
         

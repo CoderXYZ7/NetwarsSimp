@@ -1,290 +1,186 @@
-const API_URL = '/api/v1';
-        let token = localStorage.getItem('token');
-        let currentGame = null;
-        let isMyTurn = false;
+let placementMode = false;
+const baseUrl = '/api/v1';
 
-
-        async function loadGames() {
-            try {
-                const response = await apiRequest('/games');
-                const gamesList = document.getElementById('games');
-                gamesList.innerHTML = response.games.map(game => `
-                    <li class="game-item">
-                        <div>Name: ${game.name}</div>
-                        <div>Status: ${game.status}</div>
-                        <div>Created by: ${game.player1}</div>
-                        ${game.player2 ? `<div>Opponent: ${game.player2}</div>` : ''}
-                        ${game.status === 'waiting' ? 
-                            `<button onclick="joinGame(${game.game_id})">Join Game</button>` : 
-                            `<button onclick="viewGame(${game.game_id})">View Game</button>`
-                        }
-                    </li>
-                `).join('');
-            } catch (error) {
-                console.error('Error loading games:', error);
-                alert('Failed to load games');
-            }
+// Initialize the game boards
+function initializeBoards() {
+    const boards = ['selfBoard', 'opponentBoard'];
+    boards.forEach(boardId => {
+        const board = document.getElementById(boardId);
+        board.innerHTML = '';
+        for (let i = 0; i < 100; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.x = i % 10;
+            cell.dataset.y = Math.floor(i / 10);
+            cell.addEventListener('click', (e) => handleCellClick(e, boardId));
+            board.appendChild(cell);
         }
+    });
+}
 
-        async function createGame() {
-            try {
-                const name = prompt('Enter game name:');
-                if (!name) return;
-                
-                await apiRequest('/games', 'POST', { name });
-                await loadGames();
-            } catch (error) {
-                console.error('Error creating game:', error);
-                alert('Failed to create game');
-            }
-        }
+// Handle cell clicks for ship placement and attacks
+function handleCellClick(event, boardId) {
+    const cell = event.target;
+    const x = parseInt(cell.dataset.x);
+    const y = parseInt(cell.dataset.y);
+    const gameId = document.getElementById('gameId').value;
+    const playerId = document.getElementById('playerId').value;
 
-        async function joinGame(gameId) {
-            try {
-                await apiRequest(`/games/${gameId}/join`, 'POST');
-                currentGame = gameId;
-                showGame();
-            } catch (error) {
-                console.error('Error joining game:', error);
-                alert('Failed to join game');
-            }
-        }
+    if (boardId === 'selfBoard' && placementMode) {
+        placeShip(gameId, playerId, x, y);
+    } else if (boardId === 'opponentBoard' && !placementMode) {
+        attackPosition(gameId, playerId, x, y);
+    }
+}
 
+// Toggle ship placement mode
+function togglePlacementMode() {
+    placementMode = !placementMode;
+    const btn = document.querySelector('.ship-placement button');
+    btn.textContent = placementMode ? 'Cancel Placement' : 'Place Ship';
+    btn.style.backgroundColor = placementMode ? '#ff4444' : '#4CAF50';
+}
 
-        // Add these utility functions at the start of your script section
-        async function apiRequest(endpoint, method = 'GET', body = null) {
-            try {
-                const headers = {
-                    'Content-Type': 'application/json'
-                };
-                if (token) {
-                    headers['Authorization'] = `Bearer ${token}`;
+// Initialize game state
+async function initializeGame() {
+    const gameId = document.getElementById('gameId').value;
+    const playerId = document.getElementById('playerId').value;
+    
+    if (!gameId || !playerId) {
+        updateStatus('Please enter both Game ID and Player ID');
+        return;
+    }
+
+    initializeBoards();
+    await refreshBoards();
+}
+
+// Place a ship
+async function placeShip(gameId, playerId, x, y) {
+    const shipType = document.getElementById('shipType').value;
+    const orientation = document.getElementById('orientation').value;
+
+    try {
+        const response = await fetch(`${baseUrl}/game/place-ship`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                ship: {
+                    game_id: parseInt(gameId),
+                    player_id: parseInt(playerId),
+                    type: shipType,
+                    x: x,
+                    y: y,
+                    orientation: orientation
                 }
+            })
+        });
 
-                const response = await fetch(`${API_URL}${endpoint}`, {
-                    method,
-                    headers,
-                    body: body ? JSON.stringify(body) : null
-                });
+        const data = await response.json();
+        if (data.placeShip.result === 1) {
+            updateStatus('Ship placed successfully');
+            togglePlacementMode();
+            refreshBoards();
+        } else {
+            updateStatus('Invalid ship placement');
+        }
+    } catch (error) {
+        updateStatus('Error placing ship: ' + error.message);
+    }
+}
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || 'Request failed');
+// Attack a position
+async function attackPosition(gameId, playerId, x, y) {
+    try {
+        const response = await fetch(`${baseUrl}/game/attack`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                attack: {
+                    x: x,
+                    y: y,
+                    game_id: parseInt(gameId),
+                    attacker: parseInt(playerId),
+                    receiver: parseInt(playerId) === 1 ? 2 : 1 // Simple logic for 2 players
                 }
+            })
+        });
 
-                return await response.json();
-            } catch (error) {
-                alert(error.message);
-                throw error;
-            }
+        const data = await response.json();
+        const results = ['Miss!', 'Hit!', 'Ship Sunk!'];
+        updateStatus(results[data.attack.result]);
+        refreshBoards();
+    } catch (error) {
+        updateStatus('Error attacking position: ' + error.message);
+    }
+}
+
+// Refresh both game boards
+async function refreshBoards() {
+    const gameId = document.getElementById('gameId').value;
+    const playerId = document.getElementById('playerId').value;
+
+    try {
+        // Get self board
+        const selfResponse = await fetch(`${baseUrl}/game/status/self?game_id=${gameId}&player_id=${playerId}`);
+        const selfData = await selfResponse.json();
+        updateSelfBoard(selfData.game.boardSelf);
+
+        // Get opponent board
+        const oppResponse = await fetch(`${baseUrl}/game/status/opponent?game_id=${gameId}&player_id=${playerId}`);
+        const oppData = await oppResponse.json();
+        updateOpponentBoard(oppData.game.boardOpponent);
+    } catch (error) {
+        updateStatus('Error refreshing boards: ' + error.message);
+    }
+}
+
+// Update self board display
+function updateSelfBoard(boardData) {
+    const cells = document.querySelectorAll('#selfBoard .cell');
+    const boardArray = boardData.split(',');
+    
+    cells.forEach((cell, index) => {
+        const cellData = boardArray[index];
+        const shipType = cellData.substring(0, 2);
+        const isHit = cellData.charAt(4) === '1';
+        
+        cell.className = 'cell';
+        if (shipType !== 'WT') {
+            cell.classList.add('ship');
+            cell.textContent = shipType;
         }
-
-        // Auth Functions
-        // Replace the existing login function
-        async function login() {
-            try {
-                const username = document.getElementById('login-username').value;
-                const password = document.getElementById('login-password').value;
-
-                if (!username || !password) {
-                    alert('Please fill in all fields');
-                    return;
-                }
-
-                const data = await apiRequest('/auth/login', 'POST', {
-                    username,
-                    password
-                });
-
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user_id', data.user_id);
-                token = data.token;
-                showGameList();
-            } catch (error) {
-                console.error('Login error:', error);
-            }
+        if (isHit) {
+            cell.classList.add('hit');
         }
+    });
+}
 
-        async function register() {
-            try {
-                const username = document.getElementById('register-username').value;
-                const password = document.getElementById('register-password').value;
-
-                if (!username || !password) {
-                    alert('Please fill in all fields');
-                    return;
-                }
-
-                if (password.length < 6) {
-                    alert('Password must be at least 6 characters');
-                    return;
-                }
-
-                const data = await apiRequest('/auth/register', 'POST', {
-                    username,
-                    password
-                });
-
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user_id', data.user_id);
-                token = data.token;
-                showGameList();
-            } catch (error) {
-                console.error('Registration error:', error);
-            }
+// Update opponent board display
+function updateOpponentBoard(boardData) {
+    const cells = document.querySelectorAll('#opponentBoard .cell');
+    const boardArray = boardData.split(',');
+    
+    cells.forEach((cell, index) => {
+        const status = boardArray[index];
+        cell.className = 'cell';
+        if (status === '1') {
+            cell.classList.add('miss');
+        } else if (status === '2') {
+            cell.classList.add('hit');
         }
+    });
+}
 
-        function logout() {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user_id');
-            token = null;
-            document.getElementById('auth-screen').classList.remove('hidden');
-            document.getElementById('game-list-screen').classList.add('hidden');
-            document.getElementById('game-screen').classList.add('hidden');
-        }
+// Update status message
+function updateStatus(message) {
+    const statusDiv = document.getElementById('gameStatus');
+    statusDiv.textContent = message;
+}
 
-        // Game List Functions
-        async function showGameList() {
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('game-screen').classList.add('hidden');
-            document.getElementById('game-list-screen').classList.remove('hidden');
-            await loadGames();
-        }
-
-        async function loadGames() {
-            const response = await fetch(`${API_URL}/games`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                const gamesList = document.getElementById('games');
-                gamesList.innerHTML = data.games.map(game => `
-                    <li class="game-item">
-                        ${game.name} (${game.status})
-                        <button onclick="joinGame(${game.game_id})">Join</button>
-                    </li>
-                `).join('');
-            }
-        }
-
-        async function createGame() {
-            const name = prompt('Enter game name:');
-            if (!name) return;
-
-            try {
-                const response = await fetch(`${API_URL}/games`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ name })
-                });
-
-                if (response.ok) {
-                    await loadGames();
-                    alert('Game created successfully!');
-                } else {
-                    const errorData = await response.json();
-                    console.error('Error creating game:', errorData.message);
-                    alert(`Failed to create game: ${errorData.message || 'Unknown error'}`);
-                }
-            } catch (error) {
-                console.error('Network error:', error);
-                alert('Network error: Failed to connect to the server.');
-            }
-        }
-
-
-        // Game Functions
-        async function joinGame(gameId) {
-            const response = await fetch(`${API_URL}/games/${gameId}/join`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (response.ok) {
-                currentGame = gameId;
-                showGame();
-            }
-        }
-
-        async function showGame() {
-            document.getElementById('game-list-screen').classList.add('hidden');
-            document.getElementById('game-screen').classList.remove('hidden');
-            await loadGameState();
-        }
-// ciao
-        async function loadGameState() {
-            const response = await fetch(`${API_URL}/games/${currentGame}/status`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (response.ok) {
-                const game = await response.json();
-                renderBoards(game.game);
-                updateGameInfo(game.game);
-                isMyTurn = game.game.current_turn === localStorage.getItem('user_id');
-            }
-        }
-
-        function renderBoards(game) {
-            const myBoard = document.getElementById('my-board');
-            const opponentBoard = document.getElementById('opponent-board');
-            
-            myBoard.innerHTML = '';
-            opponentBoard.innerHTML = '';
-            
-            for (let y = 0; y < 10; y++) {
-                for (let x = 0; x < 10; x++) {
-                    const myCell = document.createElement('div');
-                    myCell.className = 'cell';
-                    if (game.my_board[y][x] === 1) myCell.classList.add('ship');
-                    if (game.my_board[y][x] === 2) myCell.classList.add('hit');
-                    if (game.my_board[y][x] === 3) myCell.classList.add('miss');
-                    myBoard.appendChild(myCell);
-
-                    const oppCell = document.createElement('div');
-                    oppCell.className = 'cell';
-                    oppCell.onclick = () => makeMove(x, y);
-                    if (game.opponent_board[y][x] === 2) oppCell.classList.add('hit');
-                    if (game.opponent_board[y][x] === 3) oppCell.classList.add('miss');
-                    opponentBoard.appendChild(oppCell);
-                }
-            }
-        }
-
-        async function makeMove(x, y) {
-            if (!isMyTurn) return;
-            
-            const response = await fetch(`${API_URL}/games/${currentGame}/move`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ x, y })
-            });
-            
-            if (response.ok) {
-                const result = await response.json();
-                if (result.game_over) {
-                    alert('Game Over! You won!');
-                    showGameList();
-                } else {
-                    await loadGameState();
-                }
-            }
-        }
-
-        // Utilities
-        function toggleForms() {
-            document.getElementById('login-form').classList.toggle('hidden');
-            document.getElementById('register-form').classList.toggle('hidden');
-        }
-
-        // Initialize
-        if (token) {
-            showGameList();
-        }
+// Initialize boards on page load
+document.addEventListener('DOMContentLoaded', initializeBoards);

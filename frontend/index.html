@@ -3,54 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NETWars</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>NETWars Game Interface</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <!-- Auth Forms -->
-        <div id="auth-screen">
-            <div class="form" id="login-form">
-                <h2>Login</h2>
-                <input type="text" id="login-username" placeholder="Username">
-                <input type="password" id="login-password" placeholder="Password">
-                <button onclick="login()">Login</button>
-                <button onclick="toggleForms()">Register Instead</button>
+        <h1>NETWars</h1>
+        
+        <div class="game-setup">
+            <div class="game-info">
+                <input type="number" id="gameId" placeholder="Game ID">
+                <input type="number" id="playerId" placeholder="Player ID">
+                <button onclick="initializeGame()">Initialize Game</button>
             </div>
             
-            <div class="form hidden" id="register-form">
-                <h2>Register</h2>
-                <input type="text" id="register-username" placeholder="Username">
-                <input type="password" id="register-password" placeholder="Password">
-                <button onclick="register()">Register</button>
-                <button onclick="toggleForms()">Login Instead</button>
+            <div class="ship-placement">
+                <select id="shipType">
+                    <option value="CA">Carrier</option>
+                    <option value="SB">Submarine</option>
+                    <option value="IC">Interceptor</option>
+                    <option value="FR">Frigate</option>
+                    <option value="IF">Inflatable</option>
+                </select>
+                <select id="orientation">
+                    <option value="u">Up</option>
+                    <option value="d">Down</option>
+                    <option value="l">Left</option>
+                    <option value="r">Right</option>
+                </select>
+                <button onclick="togglePlacementMode()">Place Ship</button>
             </div>
         </div>
 
-        <!-- Game List -->
-        <div id="game-list-screen" class="hidden">
-            <h2>Games</h2>
-            <button onclick="logout()" style="float: right;">Logout</button>
-            <button onclick="createGame()">New Game</button>
-            <ul id="games" class="game-list"></ul>
+        <div class="boards-container">
+            <div class="board-section">
+                <h2>Your Board</h2>
+                <div id="selfBoard" class="game-board"></div>
+            </div>
+            <div class="board-section">
+                <h2>Opponent's Board</h2>
+                <div id="opponentBoard" class="game-board"></div>
+            </div>
         </div>
 
-        <!-- Game Screen -->
-        <div id="game-screen" class="hidden">
-            <div class="game-container">
-                <div class="board-container">
-                    <h3>Your Board</h3>
-                    <div id="my-board" class="grid"></div>
-                </div>
-                <div class="board-container">
-                    <h3>Opponent's Board</h3>
-                    <div id="opponent-board" class="grid"></div>
-                </div>
-            </div>
-            <div id="game-info" class="game-info"></div>
-        </div>
+        <div id="gameStatus" class="status"></div>
     </div>
-
     <script src="js/script.js"></script>
 </body>
 </html>
