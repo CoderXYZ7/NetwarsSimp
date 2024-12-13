@@ -6,6 +6,10 @@
     --background-color: #f0f4f8;
     --border-color: #007bff;
     --cell-size: 40px;
+    --ship-color: #2c3e50;
+    --hit-color: #e74c3c;
+    --miss-color: #95a5a6;
+    --hover-color: rgba(0, 123, 255, 0.2);
 }
 
 * {
@@ -83,52 +87,217 @@ button:hover {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Grid */
+/* Game Board Styles */
+.board-container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin: 10px;
+    display: inline-block;
+    vertical-align: top;
+}
+
+.board-container h3 {
+    text-align: center;
+    margin-bottom: 15px;
+    color: var(--text-color);
+}
+
 .grid {
     display: inline-grid;
-    grid-template-columns: repeat(10, var(--cell-size));
-    margin: 10px;
+    grid-template-columns: repeat(11, var(--cell-size));
+    grid-template-rows: repeat(11, var(--cell-size));
+    gap: 1px;
+    background-color: var(--border-color);
+    padding: 1px;
+    border-radius: 4px;
 }
 
 .cell {
     width: var(--cell-size);
     height: var(--cell-size);
-    border: 1px solid var(--border-color);
     background-color: var(--secondary-color);
-    transition: background-color 0.2s;
+    transition: all 0.2s ease;
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    user-select: none;
 }
 
 .cell:hover {
-    background-color: rgba(0, 123, 255, 0.2);
+    background-color: var(--hover-color);
 }
 
-.hit {
-    background-color: #ff4d4d;
+.cell.ship {
+    background-color: var(--ship-color);
 }
 
-.miss {
-    background-color: #cccccc;
+.cell.hit {
+    background-color: var(--hit-color);
 }
 
-.ship {
+.cell.hit::after {
+    content: '×';
+    color: white;
+    font-size: 2em;
+}
+
+.cell.miss {
+    background-color: var(--miss-color);
+}
+
+.cell.miss::after {
+    content: '•';
+    color: white;
+    font-size: 1.5em;
+}
+
+.coordinate-label {
     background-color: var(--primary-color);
-    color: var(--secondary-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+    font-weight: bold;
 }
 
-/* Game Interface */
+.game-info {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin: 10px;
+    text-align: center;
+}
+
+.game-info .status {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    color: var(--text-color);
+}
+
+.game-info .turn {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.game-controls {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.game-controls button {
+    width: auto;
+    min-width: 120px;
+}
+
 .game-container {
     display: flex;
     justify-content: space-between;
 }
 
-.board-container {
+/* Ship Placement Styles */
+.ship-selection {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin: 10px;
     text-align: center;
 }
 
-.game-info {
-    background: var(--secondary-color);
-    border: 1px solid var(--border-color);
+.ship-selection h3 {
+    margin-bottom: 15px;
+    color: var(--text-color);
+}
+
+.ship-options {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.ship-option {
+    display: flex;
+    align-items: center;
     padding: 10px;
-    margin: 10px 0;
+    border: 2px solid var(--border-color);
     border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ship-option:hover {
+    background-color: var(--hover-color);
+}
+
+.ship-option.selected {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.ship-preview {
+    display: flex;
+    gap: 2px;
+    margin-left: 10px;
+}
+
+.ship-preview-cell {
+    width: 15px;
+    height: 15px;
+    background-color: var(--ship-color);
+}
+
+.cell.placement-hover {
+    background-color: var(--hover-color);
+}
+
+.cell.placement-invalid {
+    background-color: var(--hit-color);
+    opacity: 0.5;
+}
+
+.cell.dragging {
+    opacity: 0.5;
+}
+
+.rotate-button {
+    margin: 10px;
+    padding: 5px 15px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.rotate-button:hover {
+    background-color: var(--highlight-color);
+}
+
+.placement-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+/* Attack Animation */
+@keyframes attack-flash {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.cell.attacking {
+    animation: attack-flash 0.3s ease-in-out;
 }

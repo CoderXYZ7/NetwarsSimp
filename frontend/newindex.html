@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NETWars - Naval Battle</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+</head>
+<body>
+    <div class="container">
+        <!-- Auth Forms -->
+        <div id="auth-screen">
+            <div class="game-logo">
+                <h1>NETWars</h1>
+                <p>Naval Battle Strategy Game</p>
+            </div>
+            
+            <div class="form" id="login-form">
+                <h2>Login</h2>
+                <div class="form-group">
+                    <input type="text" id="login-username" placeholder="Username" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="login-password" placeholder="Password" required>
+                </div>
+                <div class="form-actions">
+                    <button onclick="login()" class="primary-button">Login</button>
+                    <button onclick="toggleForms()" class="secondary-button">Register Instead</button>
+                </div>
+            </div>
+            
+            <div class="form hidden" id="register-form">
+                <h2>Register</h2>
+                <div class="form-group">
+                    <input type="text" id="register-username" placeholder="Username" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="register-password" placeholder="Password" required>
+                </div>
+                <div class="form-actions">
+                    <button onclick="register()" class="primary-button">Register</button>
+                    <button onclick="toggleForms()" class="secondary-button">Login Instead</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game List Screen -->
+        <div id="game-list-screen" class="hidden">
+            <div class="header">
+                <h2>Available Games</h2>
+                <div class="header-actions">
+                    <button onclick="createGame()" class="primary-button">New Game</button>
+                    <button onclick="logout()" class="danger-button">Logout</button>
+                </div>
+            </div>
+            <div class="games-container">
+                <ul id="games" class="game-list"></ul>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden">
+            <!-- Ship Placement Interface -->
+            <div id="ship-placement" class="ship-selection hidden">
+                <h3>Place Your Ships</h3>
+                <div class="ship-options">
+                    <div class="ship-option" data-ship-size="5" data-ship-name="Carrier">
+                        <span class="ship-name">Carrier</span>
+                        <div class="ship-preview"></div>
+                        <span class="ship-size">Size: 5</span>
+                    </div>
+                    <div class="ship-option" data-ship-size="4" data-ship-name="Battleship">
+                        <span class="ship-name">Battleship</span>
+                        <div class="ship-preview"></div>
+                        <span class="ship-size">Size: 4</span>
+                    </div>
+                    <div class="ship-option" data-ship-size="3" data-ship-name="Cruiser">
+                        <span class="ship-name">Cruiser</span>
+                        <div class="ship-preview"></div>
+                        <span class="ship-size">Size: 3</span>
+                    </div>
+                    <div class="ship-option" data-ship-size="3" data-ship-name="Submarine">
+                        <span class="ship-name">Submarine</span>
+                        <div class="ship-preview"></div>
+                        <span class="ship-size">Size: 3</span>
+                    </div>
+                    <div class="ship-option" data-ship-size="2" data-ship-name="Destroyer">
+                        <span class="ship-name">Destroyer</span>
+                        <div class="ship-preview"></div>
+                        <span class="ship-size">Size: 2</span>
+                    </div>
+                </div>
+                
+                <div class="placement-controls">
+                    <button class="rotate-button" onclick="toggleShipOrientation()">
+                        <span class="button-icon">↻</span>
+                        Rotate Ship
+                        <span class="shortcut">(R)</span>
+                    </button>
+                    <div class="control-buttons">
+                        <button onclick="randomizeShips()" class="secondary-button">
+                            <span class="button-icon">🎲</span>
+                            Randomize
+                        </button>
+                        <button onclick="clearShips()" class="danger-button">
+                            <span class="button-icon">🗑</span>
+                            Clear All
+                        </button>
+                        <button onclick="confirmShipPlacement()" class="primary-button">
+                            <span class="button-icon">✓</span>
+                            Confirm Placement
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Boards -->
+            <div class="game-container">
+                <div class="board-container">
+                    <div class="board-header">
+                        <h3>Your Fleet</h3>
+                        <div class="board-stats">
+                            <span class="ships-remaining">Ships: <span id="player-ships">5</span></span>
+                            <span class="hits">Hits: <span id="player-hits">0</span></span>
+                            <span class="misses">Misses: <span id="player-misses">0</span></span>
+                        </div>
+                    </div>
+                    <div id="my-board" class="grid"></div>
+                </div>
+                
+                <div class="board-container">
+                    <div class="board-header">
+                        <h3>Enemy Waters</h3>
+                        <div class="board-stats">
+                            <span class="ships-remaining">Ships: <span id="enemy-ships">5</span></span>
+                            <span class="hits">Hits: <span id="enemy-hits">0</span></span>
+                            <span class="misses">Misses: <span id="enemy-misses">0</span></span>
+                        </div>
+                    </div>
+                    <div id="opponent-board" class="grid"></div>
+                </div>
+            </div>
+
+            <!-- Game Information -->
+            <div id="game-info" class="game-info">
+                <div class="status-container">
+                    <div class="game-status"></div>
+                    <div class="turn-indicator"></div>
+                </div>
+                <div class="game-controls">
+                    <button onclick="surrenderGame()" class="danger-button">Surrender</button>
+                    <button onclick="leaveGame()" class="secondary-button">Leave Game</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Messages -->
+        <div id="toast-container" class="toast-container"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/script.js"></script>
+</body>
+</html>

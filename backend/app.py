@@ -681,6 +681,51 @@ def get_game_board(game_id):
         if 'db' in locals():
             db.close()
 
+@app.route('/api/v1/games/<int:game_id>/place', methods=['POST'])
+@token_required
+def place_ships(game_id):
+    """Place ships for a player"""
+    try:
+        data = request.get_json()
+        if not data or 'ships' not in data:
+            return jsonify({'message': 'Ship positions are required'}), 400
+
+        player_info = GameManager.get_player_role(game_id, request.user_id)
+        if not player_info:
+            return jsonify({'message': 'Game not found'}), 404
+
+        if player_info['status'] != 'active':
+            return jsonify({'message': 'Game is not active'}), 400
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # Delete existing ships for this player
+        cursor.execute("""
+            DELETE FROM ships 
+            WHERE game_id = %s AND player_id = %s
+        """, (game_id, request.user_id))
+
+        # Insert new ships
+        for ship in data['ships']:
+            for pos in ship['positions']:
+                cursor.execute("""
+                    INSERT INTO ships (game_id, player_id, ship_type, x_start, y_start)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (game_id, request.user_id, ship['name'], pos['x'], pos['y']))
+
+        db.commit()
+        return jsonify({'success': True, 'message': 'Ships placed successfully'})
+
+    except Exception as e:
+        log_error("Error placing ships", e)
+        return jsonify({'message': 'Server error'}), 500
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'db' in locals():
+            db.close()
+
 if __name__ == '__main__':
     if DEBUG:
         print("Starting Battleship game server in DEBUG mode", flush=True)
