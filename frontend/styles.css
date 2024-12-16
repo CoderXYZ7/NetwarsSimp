@@ -203,92 +203,89 @@ button:hover {
     justify-content: space-between;
 }
 
-/* Ship Placement Styles */
+/* Ship Placement */
 .ship-selection {
-    background: white;
+    background: var(--secondary-color);
     padding: 20px;
+    margin-bottom: 20px;
     border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    margin: 10px;
-    text-align: center;
-}
-
-.ship-selection h3 {
-    margin-bottom: 15px;
-    color: var(--text-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .ship-options {
     display: flex;
-    gap: 10px;
-    justify-content: center;
     flex-wrap: wrap;
-    margin-bottom: 15px;
+    gap: 15px;
+    margin-bottom: 20px;
 }
 
 .ship-option {
-    display: flex;
-    align-items: center;
+    background: white;
     padding: 10px;
     border: 2px solid var(--border-color);
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
+    min-width: 150px;
 }
 
 .ship-option:hover {
-    background-color: var(--hover-color);
+    background: var(--hover-color);
 }
 
 .ship-option.selected {
-    background-color: var(--primary-color);
+    background: var(--primary-color);
     color: white;
+}
+
+.ship-option.placed {
+    background: var(--ship-color);
+    color: white;
+    cursor: not-allowed;
 }
 
 .ship-preview {
     display: flex;
     gap: 2px;
-    margin-left: 10px;
+    margin-top: 5px;
 }
 
 .ship-preview-cell {
     width: 15px;
     height: 15px;
-    background-color: var(--ship-color);
+    background: var(--ship-color);
 }
 
+.placement-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.placement-controls button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.placement-controls button:hover {
+    opacity: 0.9;
+}
+
+/* Ship placement preview */
 .cell.placement-hover {
     background-color: var(--hover-color);
 }
 
 .cell.placement-invalid {
-    background-color: var(--hit-color);
-    opacity: 0.5;
+    background-color: rgba(231, 76, 60, 0.3);
 }
 
-.cell.dragging {
-    opacity: 0.5;
-}
-
-.rotate-button {
-    margin: 10px;
-    padding: 5px 15px;
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.rotate-button:hover {
-    background-color: var(--highlight-color);
-}
-
-.placement-controls {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 15px;
+.cell.ship-placed {
+    background-color: var(--ship-color);
 }
 
 /* Attack Animation */

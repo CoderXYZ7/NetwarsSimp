@@ -4,17 +4,17 @@ let currentGame = null;
 let isMyTurn = false;
 
 // Ship Placement Variables
+const SHIPS = {
+    'Carrier': 5,
+    'Battleship': 4,
+    'Cruiser': 3,
+    'Submarine': 3,
+    'Destroyer': 2
+};
+
 let selectedShip = null;
 let isHorizontal = true;
 let placedShips = new Map();
-
-const SHIPS = {
-    Carrier: 5,
-    Battleship: 4,
-    Cruiser: 3,
-    Submarine: 3,
-    Destroyer: 2
-};
 
 // Game Board Functions
 function createGameBoard(containerId, isPlayerBoard = true) {
@@ -199,136 +199,163 @@ async function joinGame(gameId) {
 // Ship Placement Functions
 function initializeShipPlacement() {
     const shipOptions = document.querySelectorAll('.ship-option');
-    shipOptions.forEach(option => {
-        const preview = option.querySelector('.ship-preview');
-        const size = parseInt(option.dataset.shipSize);
+    shipOptions.forEach(shipOption => {
+        // Create ship preview
+        const size = parseInt(shipOption.dataset.shipSize);
+        const preview = shipOption.querySelector('.ship-preview');
+        preview.innerHTML = '';
         for (let i = 0; i < size; i++) {
             const cell = document.createElement('div');
             cell.className = 'ship-preview-cell';
             preview.appendChild(cell);
         }
-        
-        option.addEventListener('click', () => selectShip(option));
+
+        // Add click event
+        shipOption.addEventListener('click', () => selectShip(shipOption));
     });
 
-    // Initialize keyboard controls
-    document.addEventListener('keydown', e => {
-        if (e.key === 'r' || e.key === 'R') {
+    // Add keyboard listener for rotation
+    document.addEventListener('keydown', (e) => {
+        if (e.key.toLowerCase() === 'r') {
             toggleShipOrientation();
         }
+    });
+
+    // Add hover effect for ship placement
+    const cells = document.querySelectorAll('#my-board .cell');
+    cells.forEach(cell => {
+        cell.addEventListener('mouseover', () => showShipPlacementPreview(cell));
+        cell.addEventListener('mouseout', () => clearPlacementPreview());
+        cell.addEventListener('click', () => placeShip(cell));
     });
 }
 
 function selectShip(shipOption) {
-    if (selectedShip) {
-        selectedShip.classList.remove('selected');
+    // Clear previous selection
+    document.querySelectorAll('.ship-option').forEach(option => {
+        option.classList.remove('selected');
+    });
+
+    // Select new ship if it's not already placed
+    if (!shipOption.classList.contains('placed')) {
+        shipOption.classList.add('selected');
+        selectedShip = {
+            name: shipOption.dataset.shipName,
+            size: parseInt(shipOption.dataset.shipSize)
+        };
     }
-    selectedShip = shipOption;
-    shipOption.classList.add('selected');
 }
 
 function toggleShipOrientation() {
-    isHorizontal = !isHorizontal;
-    updatePlacementHover();
+    if (selectedShip) {
+        isHorizontal = !isHorizontal;
+        const cells = document.querySelectorAll('#my-board .cell');
+        cells.forEach(cell => {
+            if (cell.matches(':hover')) {
+                showShipPlacementPreview(cell);
+            }
+        });
+    }
 }
 
-function updatePlacementHover() {
-    const cells = document.querySelectorAll('#my-board .cell');
-    cells.forEach(cell => {
+function clearPlacementPreview() {
+    document.querySelectorAll('#my-board .cell').forEach(cell => {
         cell.classList.remove('placement-hover', 'placement-invalid');
     });
-
-    if (selectedShip) {
-        const hoveredCell = document.querySelector('#my-board .cell:hover');
-        if (hoveredCell) {
-            showShipPlacementPreview(hoveredCell);
-        }
-    }
 }
 
 function showShipPlacementPreview(startCell) {
-    const size = parseInt(selectedShip.dataset.shipSize);
-    const cells = getShipCells(startCell, size);
+    if (!selectedShip) return;
     
-    if (isValidPlacement(cells)) {
-        cells.forEach(cell => cell.classList.add('placement-hover'));
-    } else {
-        cells.forEach(cell => cell.classList.add('placement-invalid'));
-    }
+    clearPlacementPreview();
+    const cells = getShipCells(startCell, selectedShip.size);
+    if (!cells) return;
+
+    const isValid = isValidPlacement(cells);
+    cells.forEach(cell => {
+        cell.classList.add(isValid ? 'placement-hover' : 'placement-invalid');
+    });
 }
 
 function getShipCells(startCell, size) {
-    const cells = [startCell];
-    const x = parseInt(startCell.dataset.x);
-    const y = parseInt(startCell.dataset.y);
+    const cells = [];
+    const board = document.getElementById('my-board');
+    const startX = parseInt(startCell.dataset.x);
+    const startY = parseInt(startCell.dataset.y);
 
-    for (let i = 1; i < size; i++) {
-        const nextX = isHorizontal ? x + i : x;
-        const nextY = isHorizontal ? y : y + i;
-        const nextCell = document.querySelector(`#my-board .cell[data-x="${nextX}"][data-y="${nextY}"]`);
-        if (nextCell) {
-            cells.push(nextCell);
-        }
+    for (let i = 0; i < size; i++) {
+        const x = isHorizontal ? startX + i : startX;
+        const y = isHorizontal ? startY : startY + i;
+        
+        if (x > 9 || y > 9) return null;
+        
+        const cell = board.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+        if (!cell) return null;
+        cells.push(cell);
     }
+
     return cells;
 }
 
 function isValidPlacement(cells) {
-    if (cells.length !== parseInt(selectedShip.dataset.shipSize)) {
-        return false;
-    }
+    if (!cells) return false;
 
-    // Check if cells are empty and not overlapping with other ships
-    return cells.every(cell => {
-        if (cell.classList.contains('ship')) {
+    // Check if any cell is already occupied
+    for (const cell of cells) {
+        if (cell.classList.contains('ship-placed')) {
             return false;
         }
-        
-        // Check adjacent cells
+
+        // Check surrounding cells
         const x = parseInt(cell.dataset.x);
         const y = parseInt(cell.dataset.y);
         
         for (let dx = -1; dx <= 1; dx++) {
             for (let dy = -1; dy <= 1; dy++) {
-                const adjacentCell = document.querySelector(
-                    `#my-board .cell[data-x="${x + dx}"][data-y="${y + dy}"]`
-                );
+                const adjacentCell = document.querySelector(`#my-board [data-x="${x + dx}"][data-y="${y + dy}"]`);
                 if (adjacentCell && 
-                    adjacentCell.classList.contains('ship') && 
+                    adjacentCell.classList.contains('ship-placed') && 
                     !cells.includes(adjacentCell)) {
                     return false;
                 }
             }
         }
-        return true;
-    });
+    }
+
+    return true;
 }
 
 function placeShip(startCell) {
-    if (!selectedShip || !isValidPlacement(getShipCells(startCell, parseInt(selectedShip.dataset.shipSize)))) {
-        return;
-    }
+    if (!selectedShip) return;
+    
+    const cells = getShipCells(startCell, selectedShip.size);
+    if (!cells || !isValidPlacement(cells)) return;
 
-    const shipName = selectedShip.dataset.shipName;
-    const cells = getShipCells(startCell, SHIPS[shipName]);
-    
-    // Remove old placement of this ship type
-    if (placedShips.has(shipName)) {
-        placedShips.get(shipName).forEach(cell => cell.classList.remove('ship'));
-    }
-    
-    // Place new ship
-    cells.forEach(cell => cell.classList.add('ship'));
-    placedShips.set(shipName, cells);
-    
-    // Deselect ship if all ships are placed
-    if (placedShips.size === Object.keys(SHIPS).length) {
-        selectedShip.classList.remove('selected');
-        selectedShip = null;
-    }
+    // Place the ship
+    cells.forEach(cell => {
+        cell.classList.add('ship-placed');
+    });
+
+    // Mark ship as placed
+    const shipOption = document.querySelector(`.ship-option[data-ship-name="${selectedShip.name}"]`);
+    shipOption.classList.remove('selected');
+    shipOption.classList.add('placed');
+
+    // Store ship placement
+    placedShips.set(selectedShip.name, {
+        start: {
+            x: parseInt(startCell.dataset.x),
+            y: parseInt(startCell.dataset.y)
+        },
+        orientation: isHorizontal ? 'horizontal' : 'vertical'
+    });
+
+    // Clear selection
+    selectedShip = null;
+    clearPlacementPreview();
 }
 
-function randomizeShips() {
+async function randomizeShips() {
     clearShips();
     
     Object.entries(SHIPS).forEach(([shipName, size]) => {
@@ -342,8 +369,14 @@ function randomizeShips() {
             if (startCell) {
                 const cells = getShipCells(startCell, size);
                 if (isValidPlacement(cells)) {
-                    cells.forEach(cell => cell.classList.add('ship'));
-                    placedShips.set(shipName, cells);
+                    cells.forEach(cell => cell.classList.add('ship-placed'));
+                    placedShips.set(shipName, {
+                        start: {
+                            x: parseInt(startCell.dataset.x),
+                            y: parseInt(startCell.dataset.y)
+                        },
+                        orientation: isHorizontal ? 'horizontal' : 'vertical'
+                    });
                     placed = true;
                 }
             }
@@ -353,7 +386,7 @@ function randomizeShips() {
 
 function clearShips() {
     document.querySelectorAll('#my-board .cell').forEach(cell => {
-        cell.classList.remove('ship');
+        cell.classList.remove('ship-placed');
     });
     placedShips.clear();
 }
@@ -364,16 +397,16 @@ function confirmShipPlacement() {
         return;
     }
 
-    const shipPositions = Array.from(placedShips.entries()).map(([shipName, cells]) => ({
+    const shipPositions = Array.from(placedShips.entries()).map(([shipName, placement]) => ({
         name: shipName,
-        positions: cells.map(cell => ({
+        positions: getShipCells(document.querySelector(`#my-board .cell[data-x="${placement.start.x}"][data-y="${placement.start.y}"]`), SHIPS[shipName]).map(cell => ({
             x: parseInt(cell.dataset.x),
             y: parseInt(cell.dataset.y)
         }))
     }));
 
     // Send ship positions to server
-    fetch(`${API_URL}/games/${currentGame}/place`, {
+    fetch(`${API_URL}/games/${currentGame}/place-ships`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -567,27 +600,29 @@ async function joinGame(gameId) {
 }
 
 async function showGame() {
+    document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('game-list-screen').classList.add('hidden');
     document.getElementById('game-screen').classList.remove('hidden');
-    document.getElementById('ship-placement').classList.remove('hidden');
     
+    // Create game boards
     createGameBoard('my-board', true);
     createGameBoard('opponent-board', false);
+    
+    // Show ship placement interface
+    const shipPlacement = document.getElementById('ship-placement');
+    shipPlacement.classList.remove('hidden');
+    
+    // Reset ship placement state
+    selectedShip = null;
+    isHorizontal = true;
+    placedShips.clear();
+    
+    // Initialize ship placement interface
     initializeShipPlacement();
     
-    // Add hover effect for ship placement
-    const myBoard = document.getElementById('my-board');
-    myBoard.addEventListener('mouseover', e => {
-        if (e.target.classList.contains('cell')) {
-            updatePlacementHover();
-        }
-    });
-    
-    myBoard.addEventListener('click', e => {
-        if (e.target.classList.contains('cell')) {
-            placeShip(e.target);
-        }
-    });
+    // Start game state polling
+    loadGameState();
+    gameStateInterval = setInterval(loadGameState, 2000);
 }
 
 async function loadGameState() {

@@ -488,6 +488,62 @@ def join_game(game_id):
         log_error(f"Failed to join game {game_id}", e)
         return jsonify({'message': 'Server error'}), 500
 
+@app.route('/api/v1/games/<int:game_id>/place-ships', methods=['POST'])
+@token_required
+def place_ships(game_id):
+    """Place ships for a player"""
+    try:
+        data = request.get_json()
+        if not data or 'ships' not in data:
+            return jsonify({'message': 'Ships data is required'}), 400
+
+        player_info = GameManager.get_player_role(game_id, request.user_id)
+        if not player_info:
+            return jsonify({'message': 'Game not found'}), 404
+
+        if player_info['status'] != 'waiting' and player_info['status'] != 'setup':
+            return jsonify({'message': 'Cannot place ships at this stage'}), 400
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # Delete existing ships for this player
+        cursor.execute("""
+            DELETE FROM ships 
+            WHERE game_id = %s AND player_id = %s
+        """, (game_id, request.user_id))
+
+        # Insert new ship positions
+        for ship in data['ships']:
+            for pos in ship['positions']:
+                cursor.execute("""
+                    INSERT INTO ships (game_id, player_id, ship_type, x_start, y_start)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (game_id, request.user_id, ship['name'], pos['x'], pos['y']))
+
+        # Update game status if both players have placed ships
+        cursor.execute("""
+            UPDATE games 
+            SET status = CASE 
+                WHEN (SELECT COUNT(DISTINCT player_id) FROM ships WHERE game_id = %s) = 2 
+                THEN 'in_progress' 
+                ELSE 'setup' 
+            END
+            WHERE game_id = %s
+        """, (game_id, game_id))
+
+        db.commit()
+        return jsonify({'success': True, 'message': 'Ships placed successfully'})
+
+    except Exception as e:
+        log_error(f"Error placing ships for game {game_id}", e)
+        return jsonify({'message': 'Server error'}), 500
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'db' in locals():
+            db.close()
+
 @app.route('/api/v1/games/<int:game_id>/status', methods=['GET'])
 @token_required
 def get_game_status(game_id):
@@ -674,51 +730,6 @@ def get_game_board(game_id):
 
     except Exception as e:
         log_error("Error getting game board", e)
-        return jsonify({'message': 'Server error'}), 500
-    finally:
-        if 'cursor' in locals():
-            cursor.close()
-        if 'db' in locals():
-            db.close()
-
-@app.route('/api/v1/games/<int:game_id>/place', methods=['POST'])
-@token_required
-def place_ships(game_id):
-    """Place ships for a player"""
-    try:
-        data = request.get_json()
-        if not data or 'ships' not in data:
-            return jsonify({'message': 'Ship positions are required'}), 400
-
-        player_info = GameManager.get_player_role(game_id, request.user_id)
-        if not player_info:
-            return jsonify({'message': 'Game not found'}), 404
-
-        if player_info['status'] != 'active':
-            return jsonify({'message': 'Game is not active'}), 400
-
-        db = get_db()
-        cursor = db.cursor(dictionary=True)
-
-        # Delete existing ships for this player
-        cursor.execute("""
-            DELETE FROM ships 
-            WHERE game_id = %s AND player_id = %s
-        """, (game_id, request.user_id))
-
-        # Insert new ships
-        for ship in data['ships']:
-            for pos in ship['positions']:
-                cursor.execute("""
-                    INSERT INTO ships (game_id, player_id, ship_type, x_start, y_start)
-                    VALUES (%s, %s, %s, %s, %s)
-                """, (game_id, request.user_id, ship['name'], pos['x'], pos['y']))
-
-        db.commit()
-        return jsonify({'success': True, 'message': 'Ships placed successfully'})
-
-    except Exception as e:
-        log_error("Error placing ships", e)
         return jsonify({'message': 'Server error'}), 500
     finally:
         if 'cursor' in locals():
