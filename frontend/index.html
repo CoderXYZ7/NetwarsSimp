@@ -93,11 +93,26 @@
 
             <div class="game-container">
                 <div class="board-container">
-                    <h3>Your Board</h3>
+                    <div class="board-header">
+                        <h3>Your Fleet</h3>
+                        <div class="board-stats">
+                            <span class="ships-remaining">Ships: <span id="player-ships">5</span></span>
+                            <span class="hits">Hits: <span id="player-hits">0</span></span>
+                            <span class="misses">Misses: <span id="player-misses">0</span></span>
+                        </div>
+                    </div>
                     <div id="my-board" class="grid"></div>
                 </div>
+                
                 <div class="board-container">
-                    <h3>Opponent's Board</h3>
+                    <div class="board-header">
+                        <h3>Enemy Waters</h3>
+                        <div class="board-stats">
+                            <span class="ships-remaining">Ships: <span id="enemy-ships">5</span></span>
+                            <span class="hits">Hits: <span id="enemy-hits">0</span></span>
+                            <span class="misses">Misses: <span id="enemy-misses">0</span></span>
+                        </div>
+                    </div>
                     <div id="opponent-board" class="grid"></div>
                 </div>
             </div>

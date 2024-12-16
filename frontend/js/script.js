@@ -47,14 +47,42 @@ function createGameBoard(containerId, isPlayerBoard = true) {
                 cell.dataset.x = j - 1;
                 cell.dataset.y = i - 1;
                 
-                if (!isPlayerBoard) {
-                    cell.addEventListener('click', () => handleCellClick(cell));
+                if (isPlayerBoard) {
+                    // Add ship placement handlers for player's board
+                    cell.addEventListener('mouseover', () => {
+                        if (selectedShip) {
+                            showShipPlacementPreview(cell);
+                        }
+                    });
+                    
+                    cell.addEventListener('mouseout', () => {
+                        if (selectedShip) {
+                            clearPlacementPreview();
+                        }
+                    });
+                    
+                    cell.addEventListener('click', () => {
+                        if (selectedShip) {
+                            placeShip(cell);
+                        }
+                    });
+                } else {
+                    // Add attack handlers for opponent's board
+                    cell.addEventListener('click', () => {
+                        if (isMyTurn) {
+                            makeMove(j - 1, i - 1);
+                        }
+                    });
                 }
             }
             
             container.appendChild(cell);
         }
     }
+
+    // Set grid layout based on board size
+    container.style.gridTemplateColumns = `repeat(11, var(--cell-size))`;
+    container.style.gridTemplateRows = `repeat(11, var(--cell-size))`;
 }
 
 function updateGameBoard(boardId, gameState) {
@@ -130,24 +158,86 @@ function updateGameInfo(gameState) {
 }
 
 // Game State Management
-function loadGameState() {
-    if (!currentGame) return;
-    
-    fetch(`${API_URL}/games/${currentGame}/status`, {
-        headers: {
-            'Authorization': `Bearer ${token}`
+async function loadGameState() {
+    if (!currentGame) {
+        return;
+    }
+
+    try {
+        const response = await apiRequest(`/games/${currentGame}/status`);
+        if (response.game) {
+            renderBoards(response.game);
+            updateGameInfo(response.game);
+            isMyTurn = response.game.current_turn === localStorage.getItem('user_id');
         }
-    })
-    .then(response => response.json())
-    .then(gameState => {
-        updateGameBoard('my-board', gameState.game);
-        updateGameBoard('opponent-board', gameState.game);
-        updateGameInfo(gameState.game);
-        isMyTurn = gameState.game.current_turn === localStorage.getItem('user_id');
-    })
-    .catch(error => {
-        console.error('Error updating game state:', error);
-    });
+    } catch (error) {
+        console.error('Error loading game state:', error);
+    }
+}
+
+function renderBoards(game) {
+    if (!game || !game.my_board || !game.opponent_board) {
+        console.log('Game state not ready yet');
+        return;
+    }
+
+    const myBoard = document.getElementById('my-board');
+    const opponentBoard = document.getElementById('opponent-board');
+    
+    // Clear existing boards
+    myBoard.innerHTML = '';
+    opponentBoard.innerHTML = '';
+    
+    // Create coordinate labels
+    const letters = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+    const numbers = ['', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+
+    // Create the grid with coordinates for both boards
+    for (let i = 0; i < 11; i++) {
+        for (let j = 0; j < 11; j++) {
+            // My Board
+            const myCell = document.createElement('div');
+            if (i === 0 && j === 0) {
+                myCell.className = 'coordinate-label';
+            } else if (i === 0) {
+                myCell.className = 'coordinate-label';
+                myCell.textContent = letters[j];
+            } else if (j === 0) {
+                myCell.className = 'coordinate-label';
+                myCell.textContent = numbers[i];
+            } else {
+                myCell.className = 'cell';
+                const boardX = j - 1;
+                const boardY = i - 1;
+                if (game.my_board[boardY][boardX] === 1) myCell.classList.add('ship');
+                if (game.my_board[boardY][boardX] === 2) myCell.classList.add('hit');
+                if (game.my_board[boardY][boardX] === 3) myCell.classList.add('miss');
+            }
+            myBoard.appendChild(myCell);
+
+            // Opponent Board
+            const oppCell = document.createElement('div');
+            if (i === 0 && j === 0) {
+                oppCell.className = 'coordinate-label';
+            } else if (i === 0) {
+                oppCell.className = 'coordinate-label';
+                oppCell.textContent = letters[j];
+            } else if (j === 0) {
+                oppCell.className = 'coordinate-label';
+                oppCell.textContent = numbers[i];
+            } else {
+                oppCell.className = 'cell';
+                const boardX = j - 1;
+                const boardY = i - 1;
+                if (game.opponent_board[boardY][boardX] === 2) oppCell.classList.add('hit');
+                if (game.opponent_board[boardY][boardX] === 3) oppCell.classList.add('miss');
+                if (isMyTurn) {
+                    oppCell.onclick = () => makeMove(boardX, boardY);
+                }
+            }
+            opponentBoard.appendChild(oppCell);
+        }
+    }
 }
 
 async function loadGames() {
@@ -198,164 +288,194 @@ async function joinGame(gameId) {
 
 // Ship Placement Functions
 function initializeShipPlacement() {
+    // Clear any existing ships and reset placement state
+    placedShips.clear();
+    selectedShip = null;
+    isHorizontal = true;
+
     const shipOptions = document.querySelectorAll('.ship-option');
-    shipOptions.forEach(shipOption => {
-        // Create ship preview
-        const size = parseInt(shipOption.dataset.shipSize);
-        const preview = shipOption.querySelector('.ship-preview');
+    shipOptions.forEach(option => {
+        // Clear existing preview
+        const preview = option.querySelector('.ship-preview');
         preview.innerHTML = '';
+        
+        // Create new preview cells
+        const size = parseInt(option.dataset.shipSize);
         for (let i = 0; i < size; i++) {
             const cell = document.createElement('div');
             cell.className = 'ship-preview-cell';
             preview.appendChild(cell);
         }
-
-        // Add click event
-        shipOption.addEventListener('click', () => selectShip(shipOption));
+        
+        // Reset state and add click listener
+        option.classList.remove('placed', 'selected');
+        option.addEventListener('click', () => selectShip(option));
     });
 
-    // Add keyboard listener for rotation
-    document.addEventListener('keydown', (e) => {
-        if (e.key.toLowerCase() === 'r') {
+    // Initialize keyboard controls
+    document.addEventListener('keydown', e => {
+        if (e.key === 'r' || e.key === 'R') {
             toggleShipOrientation();
         }
     });
 
-    // Add hover effect for ship placement
-    const cells = document.querySelectorAll('#my-board .cell');
+    // Show the ship placement interface
+    const shipPlacement = document.getElementById('ship-placement');
+    shipPlacement.classList.remove('hidden');
+
+    // Add hover effect for ship placement on the board
+    const myBoard = document.getElementById('my-board');
+    const cells = myBoard.querySelectorAll('.cell');
+    
     cells.forEach(cell => {
-        cell.addEventListener('mouseover', () => showShipPlacementPreview(cell));
-        cell.addEventListener('mouseout', () => clearPlacementPreview());
-        cell.addEventListener('click', () => placeShip(cell));
-    });
-}
-
-function selectShip(shipOption) {
-    // Clear previous selection
-    document.querySelectorAll('.ship-option').forEach(option => {
-        option.classList.remove('selected');
-    });
-
-    // Select new ship if it's not already placed
-    if (!shipOption.classList.contains('placed')) {
-        shipOption.classList.add('selected');
-        selectedShip = {
-            name: shipOption.dataset.shipName,
-            size: parseInt(shipOption.dataset.shipSize)
-        };
-    }
-}
-
-function toggleShipOrientation() {
-    if (selectedShip) {
-        isHorizontal = !isHorizontal;
-        const cells = document.querySelectorAll('#my-board .cell');
-        cells.forEach(cell => {
-            if (cell.matches(':hover')) {
+        cell.addEventListener('mouseover', () => {
+            if (selectedShip) {
                 showShipPlacementPreview(cell);
             }
         });
-    }
+        
+        cell.addEventListener('mouseout', () => {
+            if (selectedShip) {
+                clearPlacementPreview();
+            }
+        });
+        
+        cell.addEventListener('click', () => {
+            if (selectedShip) {
+                placeShip(cell);
+            }
+        });
+    });
 }
 
 function clearPlacementPreview() {
-    document.querySelectorAll('#my-board .cell').forEach(cell => {
+    const cells = document.querySelectorAll('.cell.placement-hover, .cell.placement-invalid');
+    cells.forEach(cell => {
         cell.classList.remove('placement-hover', 'placement-invalid');
     });
 }
 
-function showShipPlacementPreview(startCell) {
-    if (!selectedShip) return;
-    
-    clearPlacementPreview();
-    const cells = getShipCells(startCell, selectedShip.size);
-    if (!cells) return;
+function selectShip(shipOption) {
+    // Deselect previously selected ship
+    const prevSelected = document.querySelector('.ship-option.selected');
+    if (prevSelected) {
+        prevSelected.classList.remove('selected');
+    }
 
-    const isValid = isValidPlacement(cells);
+    // If clicking the same ship, deselect it
+    if (selectedShip === shipOption.dataset.shipName) {
+        selectedShip = null;
+        clearPlacementPreview();
+        return;
+    }
+
+    // Select the new ship
+    selectedShip = shipOption.dataset.shipName;
+    shipOption.classList.add('selected');
+}
+
+function toggleShipOrientation() {
+    isHorizontal = !isHorizontal;
+    updatePlacementHover();
+}
+
+function updatePlacementHover() {
+    const cells = document.querySelectorAll('#my-board .cell');
     cells.forEach(cell => {
-        cell.classList.add(isValid ? 'placement-hover' : 'placement-invalid');
+        cell.classList.remove('placement-hover', 'placement-invalid');
     });
+
+    if (selectedShip) {
+        const hoveredCell = document.querySelector('#my-board .cell:hover');
+        if (hoveredCell) {
+            showShipPlacementPreview(hoveredCell);
+        }
+    }
+}
+
+function showShipPlacementPreview(startCell) {
+    const size = parseInt(selectedShip.dataset.shipSize);
+    const cells = getShipCells(startCell, size);
+    
+    if (isValidPlacement(cells)) {
+        cells.forEach(cell => cell.classList.add('placement-hover'));
+    } else {
+        cells.forEach(cell => cell.classList.add('placement-invalid'));
+    }
 }
 
 function getShipCells(startCell, size) {
-    const cells = [];
-    const board = document.getElementById('my-board');
-    const startX = parseInt(startCell.dataset.x);
-    const startY = parseInt(startCell.dataset.y);
+    const cells = [startCell];
+    const x = parseInt(startCell.dataset.x);
+    const y = parseInt(startCell.dataset.y);
 
-    for (let i = 0; i < size; i++) {
-        const x = isHorizontal ? startX + i : startX;
-        const y = isHorizontal ? startY : startY + i;
-        
-        if (x > 9 || y > 9) return null;
-        
-        const cell = board.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-        if (!cell) return null;
-        cells.push(cell);
+    for (let i = 1; i < size; i++) {
+        const nextX = isHorizontal ? x + i : x;
+        const nextY = isHorizontal ? y : y + i;
+        const nextCell = document.querySelector(`#my-board .cell[data-x="${nextX}"][data-y="${nextY}"]`);
+        if (nextCell) {
+            cells.push(nextCell);
+        }
     }
-
     return cells;
 }
 
 function isValidPlacement(cells) {
-    if (!cells) return false;
+    if (cells.length !== parseInt(selectedShip.dataset.shipSize)) {
+        return false;
+    }
 
-    // Check if any cell is already occupied
-    for (const cell of cells) {
-        if (cell.classList.contains('ship-placed')) {
+    // Check if cells are empty and not overlapping with other ships
+    return cells.every(cell => {
+        if (cell.classList.contains('ship')) {
             return false;
         }
-
-        // Check surrounding cells
+        
+        // Check adjacent cells
         const x = parseInt(cell.dataset.x);
         const y = parseInt(cell.dataset.y);
         
         for (let dx = -1; dx <= 1; dx++) {
             for (let dy = -1; dy <= 1; dy++) {
-                const adjacentCell = document.querySelector(`#my-board [data-x="${x + dx}"][data-y="${y + dy}"]`);
+                const adjacentCell = document.querySelector(
+                    `#my-board .cell[data-x="${x + dx}"][data-y="${y + dy}"]`
+                );
                 if (adjacentCell && 
-                    adjacentCell.classList.contains('ship-placed') && 
+                    adjacentCell.classList.contains('ship') && 
                     !cells.includes(adjacentCell)) {
                     return false;
                 }
             }
         }
-    }
-
-    return true;
+        return true;
+    });
 }
 
 function placeShip(startCell) {
-    if (!selectedShip) return;
+    if (!selectedShip || !isValidPlacement(getShipCells(startCell, parseInt(selectedShip.dataset.shipSize)))) {
+        return;
+    }
+
+    const shipName = selectedShip;
+    const cells = getShipCells(startCell, SHIPS[shipName]);
     
-    const cells = getShipCells(startCell, selectedShip.size);
-    if (!cells || !isValidPlacement(cells)) return;
-
-    // Place the ship
-    cells.forEach(cell => {
-        cell.classList.add('ship-placed');
-    });
-
-    // Mark ship as placed
-    const shipOption = document.querySelector(`.ship-option[data-ship-name="${selectedShip.name}"]`);
-    shipOption.classList.remove('selected');
-    shipOption.classList.add('placed');
-
-    // Store ship placement
-    placedShips.set(selectedShip.name, {
-        start: {
-            x: parseInt(startCell.dataset.x),
-            y: parseInt(startCell.dataset.y)
-        },
-        orientation: isHorizontal ? 'horizontal' : 'vertical'
-    });
-
-    // Clear selection
-    selectedShip = null;
-    clearPlacementPreview();
+    // Remove old placement of this ship type
+    if (placedShips.has(shipName)) {
+        placedShips.get(shipName).forEach(cell => cell.classList.remove('ship'));
+    }
+    
+    // Place new ship
+    cells.forEach(cell => cell.classList.add('ship'));
+    placedShips.set(shipName, cells);
+    
+    // Deselect ship if all ships are placed
+    if (placedShips.size === Object.keys(SHIPS).length) {
+        selectedShip = null;
+        clearPlacementPreview();
+    }
 }
 
-async function randomizeShips() {
+function randomizeShips() {
     clearShips();
     
     Object.entries(SHIPS).forEach(([shipName, size]) => {
@@ -369,14 +489,8 @@ async function randomizeShips() {
             if (startCell) {
                 const cells = getShipCells(startCell, size);
                 if (isValidPlacement(cells)) {
-                    cells.forEach(cell => cell.classList.add('ship-placed'));
-                    placedShips.set(shipName, {
-                        start: {
-                            x: parseInt(startCell.dataset.x),
-                            y: parseInt(startCell.dataset.y)
-                        },
-                        orientation: isHorizontal ? 'horizontal' : 'vertical'
-                    });
+                    cells.forEach(cell => cell.classList.add('ship'));
+                    placedShips.set(shipName, cells);
                     placed = true;
                 }
             }
@@ -386,7 +500,7 @@ async function randomizeShips() {
 
 function clearShips() {
     document.querySelectorAll('#my-board .cell').forEach(cell => {
-        cell.classList.remove('ship-placed');
+        cell.classList.remove('ship');
     });
     placedShips.clear();
 }
@@ -397,9 +511,9 @@ function confirmShipPlacement() {
         return;
     }
 
-    const shipPositions = Array.from(placedShips.entries()).map(([shipName, placement]) => ({
+    const shipPositions = Array.from(placedShips.entries()).map(([shipName, cells]) => ({
         name: shipName,
-        positions: getShipCells(document.querySelector(`#my-board .cell[data-x="${placement.start.x}"][data-y="${placement.start.y}"]`), SHIPS[shipName]).map(cell => ({
+        positions: cells.map(cell => ({
             x: parseInt(cell.dataset.x),
             y: parseInt(cell.dataset.y)
         }))
@@ -600,65 +714,119 @@ async function joinGame(gameId) {
 }
 
 async function showGame() {
-    document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('game-list-screen').classList.add('hidden');
     document.getElementById('game-screen').classList.remove('hidden');
     
-    // Create game boards
+    // Clear any existing ships and reset placement state
+    placedShips.clear();
+    selectedShip = null;
+    isHorizontal = true;
+    
     createGameBoard('my-board', true);
     createGameBoard('opponent-board', false);
     
-    // Show ship placement interface
+    // Show ship placement interface and initialize it
     const shipPlacement = document.getElementById('ship-placement');
     shipPlacement.classList.remove('hidden');
-    
-    // Reset ship placement state
-    selectedShip = null;
-    isHorizontal = true;
-    placedShips.clear();
-    
-    // Initialize ship placement interface
     initializeShipPlacement();
     
-    // Start game state polling
-    loadGameState();
-    gameStateInterval = setInterval(loadGameState, 2000);
+    // Add hover effect for ship placement
+    const myBoard = document.getElementById('my-board');
+    myBoard.addEventListener('mouseover', e => {
+        if (e.target.classList.contains('cell')) {
+            updatePlacementHover();
+        }
+    });
+    
+    myBoard.addEventListener('click', e => {
+        if (e.target.classList.contains('cell') && selectedShip) {
+            placeShip(e.target);
+        }
+    });
+    
+    // Initialize ship placement UI
+    document.querySelectorAll('.ship-option').forEach(option => {
+        option.classList.remove('placed');
+    });
 }
 
 async function loadGameState() {
-    const response = await fetch(`${API_URL}/games/${currentGame}/status`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (response.ok) {
-        const game = await response.json();
-        renderBoards(game.game);
-        updateGameInfo(game.game);
-        isMyTurn = game.game.current_turn === localStorage.getItem('user_id');
+    if (!currentGame) {
+        return;
+    }
+
+    try {
+        const response = await apiRequest(`/games/${currentGame}/status`);
+        if (response.game) {
+            renderBoards(response.game);
+            updateGameInfo(response.game);
+            isMyTurn = response.game.current_turn === localStorage.getItem('user_id');
+        }
+    } catch (error) {
+        console.error('Error loading game state:', error);
     }
 }
 
 function renderBoards(game) {
+    if (!game || !game.my_board || !game.opponent_board) {
+        console.log('Game state not ready yet');
+        return;
+    }
+
     const myBoard = document.getElementById('my-board');
     const opponentBoard = document.getElementById('opponent-board');
     
+    // Clear existing boards
     myBoard.innerHTML = '';
     opponentBoard.innerHTML = '';
     
-    for (let y = 0; y < 10; y++) {
-        for (let x = 0; x < 10; x++) {
+    // Create coordinate labels
+    const letters = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+    const numbers = ['', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+
+    // Create the grid with coordinates for both boards
+    for (let i = 0; i < 11; i++) {
+        for (let j = 0; j < 11; j++) {
+            // My Board
             const myCell = document.createElement('div');
-            myCell.className = 'cell';
-            if (game.my_board[y][x] === 1) myCell.classList.add('ship');
-            if (game.my_board[y][x] === 2) myCell.classList.add('hit');
-            if (game.my_board[y][x] === 3) myCell.classList.add('miss');
+            if (i === 0 && j === 0) {
+                myCell.className = 'coordinate-label';
+            } else if (i === 0) {
+                myCell.className = 'coordinate-label';
+                myCell.textContent = letters[j];
+            } else if (j === 0) {
+                myCell.className = 'coordinate-label';
+                myCell.textContent = numbers[i];
+            } else {
+                myCell.className = 'cell';
+                const boardX = j - 1;
+                const boardY = i - 1;
+                if (game.my_board[boardY][boardX] === 1) myCell.classList.add('ship');
+                if (game.my_board[boardY][boardX] === 2) myCell.classList.add('hit');
+                if (game.my_board[boardY][boardX] === 3) myCell.classList.add('miss');
+            }
             myBoard.appendChild(myCell);
 
+            // Opponent Board
             const oppCell = document.createElement('div');
-            oppCell.className = 'cell';
-            oppCell.onclick = () => makeMove(x, y);
-            if (game.opponent_board[y][x] === 2) oppCell.classList.add('hit');
-            if (game.opponent_board[y][x] === 3) oppCell.classList.add('miss');
+            if (i === 0 && j === 0) {
+                oppCell.className = 'coordinate-label';
+            } else if (i === 0) {
+                oppCell.className = 'coordinate-label';
+                oppCell.textContent = letters[j];
+            } else if (j === 0) {
+                oppCell.className = 'coordinate-label';
+                oppCell.textContent = numbers[i];
+            } else {
+                oppCell.className = 'cell';
+                const boardX = j - 1;
+                const boardY = i - 1;
+                if (game.opponent_board[boardY][boardX] === 2) oppCell.classList.add('hit');
+                if (game.opponent_board[boardY][boardX] === 3) oppCell.classList.add('miss');
+                if (isMyTurn) {
+                    oppCell.onclick = () => makeMove(boardX, boardY);
+                }
+            }
             opponentBoard.appendChild(oppCell);
         }
     }
@@ -696,4 +864,106 @@ function toggleForms() {
 // Initialize
 if (token) {
     showGameList();
+}
+
+function showShipPlacementPreview(startCell) {
+    // Clear any existing preview
+    clearPlacementPreview();
+    
+    if (!selectedShip) return;
+    
+    const cells = getShipCells(startCell, SHIPS[selectedShip]);
+    if (!cells) return;
+    
+    const isValid = isValidPlacement(cells);
+    cells.forEach(cell => {
+        cell.classList.add(isValid ? 'placement-hover' : 'placement-invalid');
+    });
+}
+
+function getShipCells(startCell, size) {
+    const cells = [];
+    const x = parseInt(startCell.dataset.x);
+    const y = parseInt(startCell.dataset.y);
+    
+    for (let i = 0; i < size; i++) {
+        const newX = isHorizontal ? x + i : x;
+        const newY = isHorizontal ? y : y + i;
+        
+        // Check if coordinates are valid
+        if (newX < 0 || newX >= 10 || newY < 0 || newY >= 10) {
+            return null;
+        }
+        
+        const cell = document.querySelector(`#my-board .cell[data-x="${newX}"][data-y="${newY}"]`);
+        if (!cell) return null;
+        cells.push(cell);
+    }
+    
+    return cells;
+}
+
+function isValidPlacement(cells) {
+    if (!cells || cells.length === 0) return false;
+    
+    // Check if any cell is already occupied
+    for (const cell of cells) {
+        if (cell.classList.contains('ship-placed')) {
+            return false;
+        }
+        
+        // Check adjacent cells (including diagonals)
+        const x = parseInt(cell.dataset.x);
+        const y = parseInt(cell.dataset.y);
+        
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (dx === 0 && dy === 0) continue;
+                
+                const adjacentCell = document.querySelector(
+                    `#my-board .cell[data-x="${x + dx}"][data-y="${y + dy}"]`
+                );
+                
+                if (adjacentCell && 
+                    adjacentCell.classList.contains('ship-placed') && 
+                    !cells.includes(adjacentCell)) {
+                    return false;
+                }
+            }
+        }
+    }
+    
+    return true;
+}
+
+function placeShip(startCell) {
+    if (!selectedShip) return;
+    
+    const cells = getShipCells(startCell, SHIPS[selectedShip]);
+    if (!cells || !isValidPlacement(cells)) return;
+    
+    // Remove old placement of this ship type
+    if (placedShips.has(selectedShip)) {
+        placedShips.get(selectedShip).forEach(cell => {
+            cell.classList.remove('ship-placed');
+        });
+    }
+    
+    // Place the ship
+    cells.forEach(cell => cell.classList.add('ship-placed'));
+    placedShips.set(selectedShip, cells);
+    
+    // Mark the ship option as placed
+    const shipOption = document.querySelector(`.ship-option[data-ship-name="${selectedShip}"]`);
+    shipOption.classList.add('placed');
+    
+    // Deselect ship if all ships are placed
+    if (placedShips.size === Object.keys(SHIPS).length) {
+        const prevSelected = document.querySelector('.ship-option.selected');
+        if (prevSelected) {
+            prevSelected.classList.remove('selected');
+        }
+        selectedShip = null;
+        clearPlacementPreview();
+    }
 }
